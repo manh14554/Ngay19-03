@@ -46,6 +46,14 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Login count cannot be negative"]
     },
+    passwordResetTokenHash: {
+      type: String,
+      default: null
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null
+    },
     lockTime: Date,
     isDeleted: {
       type: Boolean,

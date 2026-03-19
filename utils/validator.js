@@ -27,6 +27,26 @@ module.exports = {
                 return value !== req.body.oldpassword
             }).withMessage("newpassword khong duoc trung oldpassword")
     ],
+    ForgotPasswordValidator: [
+        body().custom(function (value, { req }) {
+            if (!req.body.email && !req.body.username) {
+                throw new Error("can email hoac username")
+            }
+            return true
+        }),
+        body("email").optional().isEmail().withMessage("email sai dinh dang"),
+        body("username").optional().isAlphanumeric().withMessage("username khong duoc chua ki tu dac biet"),
+    ],
+    ResetPasswordValidator: [
+        body("token").notEmpty().withMessage("token khong duoc de trong"),
+        body("newpassword").notEmpty().withMessage("newpassword khong duoc de trong").bail().isStrongPassword({
+            minLength: 8,
+            minLowercase: 1,
+            minNumbers: 1,
+            minSymbols: 1,
+            minUppercase: 1
+        }).withMessage("password dai it nhat 8 ki tu, trong do co it nhat 1 ki tu hoa, 1 ki tu thuong, 1 ki tu so va 1 ki tu dac biet")
+    ],
     CreateUserValidator: [
         body("email").notEmpty().withMessage("email khong duoc de trong").bail().isEmail().withMessage("email sai dinh dang"),
         body("username").notEmpty().withMessage("username khong duoc de trong").bail().isAlphanumeric().withMessage("username khong duoc chua ki tu dac biet"),
@@ -66,6 +86,4 @@ module.exports = {
         body("avatarUrl").optional().isArray().withMessage("image khong hop le"),
         body("avatarUrl.*").optional().isURL().withMessage("Url khong hop le")
     ]
-
-
 }

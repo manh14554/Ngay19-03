@@ -21,6 +21,12 @@ module.exports = {
             isDeleted: false
         })
     },
+    FindUserByEmail: async function (email) {
+        return await userModel.findOne({
+            email: (email || "").toLowerCase(),
+            isDeleted: false
+        })
+    },
     FindUserById: async function (id) {
         try {
             return await userModel.findOne({

@@ -1,9 +1,11 @@
 let express = require('express')
 let router = express.Router()
 let userController = require('../controllers/users')
-let { RegisterValidator, ChangePasswordValidator, validatedResult } = require('../utils/validator')
+let userModel = require('../schemas/users')
+let { RegisterValidator, ChangePasswordValidator, ForgotPasswordValidator, ResetPasswordValidator, validatedResult } = require('../utils/validator')
 let bcrypt = require('bcrypt')
 let { signAccessToken } = require('../utils/jwtRs256')
+let crypto = require('crypto')
 const { check } = require('express-validator')
 const { checkLogin } = require('../utils/authHandler')
 
@@ -85,6 +87,78 @@ router.post('/changepassword', checkLogin, ChangePasswordValidator, validatedRes
     res.send({
         message: "doi mat khau thanh cong"
     })
+})
+
+router.post('/forgotpassword', ForgotPasswordValidator, validatedResult, async function (req, res, next) {
+    try {
+        let { email, username } = req.body;
+        let user = null;
+        if (username) {
+            user = await userController.FindUserByUsername(username)
+        } else if (email) {
+            user = await userController.FindUserByEmail(email)
+        }
+
+        if (user) {
+            let resetToken = crypto.randomBytes(32).toString('hex')
+            let resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex')
+            user.passwordResetTokenHash = resetTokenHash
+            user.passwordResetExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
+            await user.save()
+
+            if (process.env.NODE_ENV !== 'production') {
+                res.send({
+                    message: "neu tai khoan ton tai, he thong da tao reset token",
+                    token: resetToken,
+                    expiresAt: user.passwordResetExpiresAt
+                })
+                return;
+            }
+        }
+
+        res.send({
+            message: "neu tai khoan ton tai, he thong da gui huong dan khoi phuc mat khau"
+        })
+    } catch (err) {
+        res.status(400).send({
+            message: err?.message || "forgot password failed"
+        })
+    }
+})
+
+router.post('/resetpassword', ResetPasswordValidator, validatedResult, async function (req, res, next) {
+    try {
+        let { token, newpassword } = req.body;
+        let resetTokenHash = crypto.createHash('sha256').update(token).digest('hex')
+        let user = await userModel.findOne({
+            passwordResetTokenHash: resetTokenHash,
+            passwordResetExpiresAt: { $gt: new Date() },
+            isDeleted: false
+        })
+        if (!user) {
+            res.status(404).send({
+                message: "token khong hop le hoac da het han"
+            })
+            return;
+        }
+
+        user.password = newpassword
+        user.passwordResetTokenHash = null
+        user.passwordResetExpiresAt = null
+        user.loginCount = 0
+        user.lockTime = null
+        await user.save()
+
+        let accessToken = signAccessToken({ id: user._id }, { expiresIn: '1h' })
+        res.send({
+            message: "doi mat khau thanh cong",
+            token: accessToken
+        })
+    } catch (err) {
+        res.status(400).send({
+            message: err?.message || "reset password failed"
+        })
+    }
 })
 
 module.exports = router;
